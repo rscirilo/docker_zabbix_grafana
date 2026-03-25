@@ -51,6 +51,17 @@ Os containers serão criados e configurados automaticamente.
 - Todos os ambientes foram testados no **Ubuntu Server 24.04 LTS**.
 - Use `sudo` se necessário ao executar comandos com Docker.
 
+##SUBINDO O AMBIENTE:
+
+## Salvar o arquivo e subir
+docker compose up -d
+
+# Verificar se os containers estão rodando
+docker compose ps
+
+# Ver logs em caso de erro
+docker compose logs -f
+
 ---
 
 Contribuições são bem-vindas!
