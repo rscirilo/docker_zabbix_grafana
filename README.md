@@ -17,7 +17,7 @@ Este repositório contém uma stack pronta para uso com **Zabbix**, **Grafana** 
 Clone este repositório:
 
 ```bash
-git clone https://github.com/docker_zabbix_grafana.git
+git clone https://github.com/rscirilo/docker_zabbix_grafana.git
 cd containers
 ```
 
