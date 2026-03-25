@@ -18,7 +18,7 @@ Clone este repositório:
 
 ```bash
 git clone https://github.com/rscirilo/docker_zabbix_grafana.git
-cd containers
+cd  docker_zabbix_grafana
 ```
 
 Suba o ambiente com:
