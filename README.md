@@ -33,16 +33,19 @@ Os containers serão criados e configurados automaticamente.
 
 | Serviço   | Porta padrão | Observações                                        |
 |-----------|--------------|----------------------------------------------------|
-| Zabbix    | 8080         | Interface Web de monitoramento                    |
-| Grafana   | 3000         | Dashboard com plugin Zabbix já instalado          |
+| Graylog   | 9000         | Interface Web de Logs                             |
+| Zabbix    | 8082         | Interface Web de monitoramento                    |
+| Grafana   | 3001         | Dashboard com plugin Zabbix já instalado          |
 | MySQL     | 3306         | Banco de dados usado pelo Zabbix                  |
+| Portainer | 9443         | Portainer                  |
 
 > **Importante:** O plugin do Zabbix já está instalado no Grafana e configurado para conexão automática com o banco de dados.
 
 ## Acesso
 
 - **Zabbix Web:** `http://<IP-DO-SERVIDOR>:8080`
-- **Grafana Web:** `http://<IP-DO-SERVIDOR>:3000`  
+- **Grafana Web:** `http://<IP-DO-SERVIDOR>:3000`
+- **Portaine Web:** `http://<IP-DO-SERVIDOR>:9443`  
   - Usuário padrão: `admin`  
   - Senha padrão: `admin`
 
