@@ -63,5 +63,24 @@ docker compose ps
 docker compose logs -f
 
 ---
+# Usando o arquivo install.sh
+
+Use assim:
+
+```bash
+chmod +x install_docker.sh
+./install_docker.sh
+```
+Ou sem dar permissão de execução:
+
+```bash
+bash install_docker.sh
+```
+Para evitar erro de permissão, eu sugiro este bloco completo:
+
+```bash
+chmod +x install_docker.sh
+./install_docker.sh
+```
 
 Contribuições são bem-vindas!
