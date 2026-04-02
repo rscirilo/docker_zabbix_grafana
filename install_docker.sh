@@ -1,4 +1,3 @@
-cat > install_docker.sh <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
 
@@ -19,79 +18,77 @@ ZABBIX_DB_PASSWORD='@123Mudar'
 MYSQL_ROOT_PASSWORD='@123Mudar'
 
 GRAYLOG_PASSWORD_SECRET='MudarParaUmaStringGrandeSeguraComNoMinimo96Caracteres_1234567890_ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdef'
-GRAYLOG_ROOT_PASSWORD_SHA2="$(echo -n '@123Mudar' | sha256sum | awk '{print $1}')"
+GRAYLOG_ROOT_PASSWORD_SHA2="$(printf '%s' '@123Mudar' | sha256sum | awk '{print $1}')"
 
 if [[ "${EUID}" -ne 0 ]]; then
   echo "Execute como root."
   exit 1
 fi
 
-echo "[1/11] Preparando sistema"
+echo "[1/12] Preparando sistema"
 export DEBIAN_FRONTEND=noninteractive
 apt update
 apt install -y ca-certificates curl gnupg lsb-release apt-transport-https
 
-echo "[2/11] Desativando firewall local, se existir"
+echo "[2/12] Desativando firewall local, se existir"
 systemctl stop ufw 2>/dev/null || true
 systemctl disable ufw 2>/dev/null || true
 systemctl stop firewalld 2>/dev/null || true
 systemctl disable firewalld 2>/dev/null || true
 
-echo "[3/11] Criando estrutura base em /srv"
+echo "[3/12] Criando estrutura em /srv"
 mkdir -p "${STACK_DIR}"
 mkdir -p "${DATA_DIR}"
 mkdir -p "${DOCKER_DATA_ROOT}"
 mkdir -p "${CONTAINERD_ROOT}"
 mkdir -p "${DATA_DIR}"/{portainer,grafana,mysql,zabbix-alertscripts,zabbix-externalscripts,zabbix-modules,zabbix-enc,zabbix-ssh_keys,zabbix-ssl-certs,zabbix-ssl-keys,zabbix-ssl-ca,zabbix-snmptraps,zabbix-mibs,mongodb,graylog-data,graylog-journal,opensearch-data}
 
-echo "[4/11] Instalando Docker oficial"
+echo "[4/12] Instalando Docker oficial"
 install -m 0755 -d /etc/apt/keyrings
 curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc
 chmod a+r /etc/apt/keyrings/docker.asc
 
-cat >/etc/apt/sources.list.d/docker.sources <<EOF2
+cat >/etc/apt/sources.list.d/docker.sources <<EOF
 Types: deb
 URIs: https://download.docker.com/linux/debian
 Suites: $(. /etc/os-release && echo "$VERSION_CODENAME")
 Components: stable
 Architectures: $(dpkg --print-architecture)
 Signed-By: /etc/apt/keyrings/docker.asc
-EOF2
+EOF
 
 apt remove -y docker.io docker-doc podman-docker containerd runc 2>/dev/null || true
 apt update
 apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 
-echo "[5/11] Configurando Docker e containerd para usar /srv"
-systemctl stop docker 2>/dev/null || true
-systemctl stop containerd 2>/dev/null || true
-
+echo "[5/12] Configurando Docker para /srv"
 mkdir -p /etc/docker
-cat >/etc/docker/daemon.json <<EOF2
+cat >/etc/docker/daemon.json <<EOF
 {
   "data-root": "${DOCKER_DATA_ROOT}"
 }
-EOF2
+EOF
 
+echo "[6/12] Configurando containerd para /srv"
 mkdir -p /etc/containerd
 containerd config default >/etc/containerd/config.toml
-sed -i 's#root = "/var/lib/containerd"#root = "'"${CONTAINERD_ROOT}"'"#' /etc/containerd/config.toml
+sed -i "s#^root = .*#root = '${CONTAINERD_ROOT}'#" /etc/containerd/config.toml
 
-echo "[6/11] Reiniciando serviços"
+echo "[7/12] Reiniciando serviços"
 systemctl daemon-reload
 systemctl enable containerd
 systemctl enable docker
 systemctl restart containerd
 systemctl restart docker
 
-echo "[7/11] Ajustando kernel para Graylog/OpenSearch"
-cat >/etc/sysctl.d/99-graylog.conf <<EOF2
+echo "[8/12] Ajustando kernel para Graylog/OpenSearch"
+cat >/etc/sysctl.d/99-graylog.conf <<EOF
 vm.max_map_count=262144
-EOF2
+EOF
 sysctl --system
 
-echo "[8/11] Gravando .env"
-cat > "${STACK_DIR}/.env" <<EOF2
+echo "[9/12] Gravando .env"
+cat > "${STACK_DIR}/.env" <<EOF
 TZ=${TIMEZONE}
 SERVER_IP=${SERVER_IP}
 ADMIN_PASS=${ADMIN_PASS}
@@ -103,10 +100,10 @@ ZABBIX_DB_PASSWORD=${ZABBIX_DB_PASSWORD}
 MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
 GRAYLOG_PASSWORD_SECRET=${GRAYLOG_PASSWORD_SECRET}
 GRAYLOG_ROOT_PASSWORD_SHA2=${GRAYLOG_ROOT_PASSWORD_SHA2}
-EOF2
+EOF
 
-echo "[9/11] Gravando docker-compose.yml"
-cat > "${STACK_DIR}/docker-compose.yml" <<'EOF2'
+echo "[10/12] Gravando docker-compose.yml"
+cat > "${STACK_DIR}/docker-compose.yml" <<'EOF'
 services:
   portainer:
     image: portainer/portainer-ce:sts
@@ -122,6 +119,7 @@ services:
   grafana:
     image: grafana/grafana:latest
     container_name: grafana
+    user: "0"
     restart: unless-stopped
     ports:
       - "3001:3000"
@@ -201,7 +199,7 @@ services:
       - /srv/docker/mongodb:/data/db
 
   opensearch:
-    image: opensearchproject/opensearch:2
+    image: opensearchproject/opensearch:2.11.1
     container_name: graylog-opensearch
     restart: unless-stopped
     environment:
@@ -235,6 +233,7 @@ services:
       GRAYLOG_HTTP_EXTERNAL_URI: http://${SERVER_IP}:9000/
       GRAYLOG_MONGODB_URI: mongodb://mongodb:27017/graylog
       GRAYLOG_ELASTICSEARCH_HOSTS: http://opensearch:9200
+      GRAYLOG_SERVER_JAVA_OPTS: -Xms512m -Xmx512m
     ports:
       - "9000:9000/tcp"
       - "1514:1514/udp"
@@ -246,13 +245,26 @@ services:
 networks:
   default:
     name: monitoring-net
-EOF2
-
-echo "[10/11] Validando compose"
-cd "${STACK_DIR}"
-docker compose config >/dev/null
-
-echo "[11/11] Pronto para executar"
-echo "Arquivo criado e validado."
-echo "Na próxima etapa, vamos apenas dar permissão e executar."
 EOF
+
+echo "[11/12] Baixando imagens"
+cd "${STACK_DIR}"
+docker compose pull
+
+echo "[12/12] Subindo stack"
+docker compose up -d
+
+echo
+echo "Instalacao concluida."
+echo "Graylog   : http://${SERVER_IP}:9000"
+echo "Zabbix    : http://${SERVER_IP}:8082"
+echo "Grafana   : http://${SERVER_IP}:3001"
+echo "Portainer : https://${SERVER_IP}:9443"
+echo
+echo "Credenciais configuradas:"
+echo "Grafana: admin / ${ADMIN_PASS}"
+echo "Graylog: admin / ${ADMIN_PASS}"
+echo "Banco Zabbix: ${ZABBIX_DB_USER} / ${ZABBIX_DB_PASSWORD}"
+echo
+echo "Status:"
+docker compose ps
