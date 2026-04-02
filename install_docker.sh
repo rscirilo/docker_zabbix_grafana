@@ -1,8 +1,11 @@
+cat > install_docker.sh <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
 
 STACK_DIR="/srv/monitoring"
 DATA_DIR="/srv/docker"
+DOCKER_DATA_ROOT="/srv/docker-data"
+CONTAINERD_ROOT="/srv/containerd"
 SERVER_IP="192.168.100.2"
 TIMEZONE="America/Fortaleza"
 
@@ -23,50 +26,72 @@ if [[ "${EUID}" -ne 0 ]]; then
   exit 1
 fi
 
-echo "[1/9] Preparando sistema"
+echo "[1/11] Preparando sistema"
 export DEBIAN_FRONTEND=noninteractive
 apt update
 apt install -y ca-certificates curl gnupg lsb-release apt-transport-https
 
-echo "[2/9] Desativando firewall local, se existir"
+echo "[2/11] Desativando firewall local, se existir"
 systemctl stop ufw 2>/dev/null || true
 systemctl disable ufw 2>/dev/null || true
 systemctl stop firewalld 2>/dev/null || true
 systemctl disable firewalld 2>/dev/null || true
 
-echo "[3/9] Instalando Docker oficial"
+echo "[3/11] Criando estrutura base em /srv"
+mkdir -p "${STACK_DIR}"
+mkdir -p "${DATA_DIR}"
+mkdir -p "${DOCKER_DATA_ROOT}"
+mkdir -p "${CONTAINERD_ROOT}"
+mkdir -p "${DATA_DIR}"/{portainer,grafana,mysql,zabbix-alertscripts,zabbix-externalscripts,zabbix-modules,zabbix-enc,zabbix-ssh_keys,zabbix-ssl-certs,zabbix-ssl-keys,zabbix-ssl-ca,zabbix-snmptraps,zabbix-mibs,mongodb,graylog-data,graylog-journal,opensearch-data}
+
+echo "[4/11] Instalando Docker oficial"
 install -m 0755 -d /etc/apt/keyrings
 curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc
 chmod a+r /etc/apt/keyrings/docker.asc
 
-cat >/etc/apt/sources.list.d/docker.sources <<EOF
+cat >/etc/apt/sources.list.d/docker.sources <<EOF2
 Types: deb
 URIs: https://download.docker.com/linux/debian
 Suites: $(. /etc/os-release && echo "$VERSION_CODENAME")
 Components: stable
 Architectures: $(dpkg --print-architecture)
 Signed-By: /etc/apt/keyrings/docker.asc
-EOF
+EOF2
 
 apt remove -y docker.io docker-doc podman-docker containerd runc 2>/dev/null || true
 apt update
 apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 
+echo "[5/11] Configurando Docker e containerd para usar /srv"
+systemctl stop docker 2>/dev/null || true
+systemctl stop containerd 2>/dev/null || true
+
+mkdir -p /etc/docker
+cat >/etc/docker/daemon.json <<EOF2
+{
+  "data-root": "${DOCKER_DATA_ROOT}"
+}
+EOF2
+
+mkdir -p /etc/containerd
+containerd config default >/etc/containerd/config.toml
+sed -i 's#root = "/var/lib/containerd"#root = "'"${CONTAINERD_ROOT}"'"#' /etc/containerd/config.toml
+
+echo "[6/11] Reiniciando serviços"
+systemctl daemon-reload
+systemctl enable containerd
 systemctl enable docker
+systemctl restart containerd
 systemctl restart docker
 
-echo "[4/9] Ajustando kernel para Graylog/OpenSearch"
-cat >/etc/sysctl.d/99-graylog.conf <<EOF
+echo "[7/11] Ajustando kernel para Graylog/OpenSearch"
+cat >/etc/sysctl.d/99-graylog.conf <<EOF2
 vm.max_map_count=262144
-EOF
+EOF2
 sysctl --system
 
-echo "[5/9] Criando estrutura em /srv"
-mkdir -p "${STACK_DIR}"
-mkdir -p "${DATA_DIR}"/{portainer,grafana,mysql,zabbix-alertscripts,zabbix-externalscripts,zabbix-modules,zabbix-enc,zabbix-ssh_keys,zabbix-ssl-certs,zabbix-ssl-keys,zabbix-ssl-ca,zabbix-snmptraps,zabbix-mibs,mongodb,graylog-data,graylog-journal,opensearch-data}
-
-echo "[6/9] Gravando .env"
-cat > "${STACK_DIR}/.env" <<EOF
+echo "[8/11] Gravando .env"
+cat > "${STACK_DIR}/.env" <<EOF2
 TZ=${TIMEZONE}
 SERVER_IP=${SERVER_IP}
 ADMIN_PASS=${ADMIN_PASS}
@@ -78,10 +103,10 @@ ZABBIX_DB_PASSWORD=${ZABBIX_DB_PASSWORD}
 MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
 GRAYLOG_PASSWORD_SECRET=${GRAYLOG_PASSWORD_SECRET}
 GRAYLOG_ROOT_PASSWORD_SHA2=${GRAYLOG_ROOT_PASSWORD_SHA2}
-EOF
+EOF2
 
-echo "[7/9] Gravando docker-compose.yml"
-cat > "${STACK_DIR}/docker-compose.yml" <<'EOF'
+echo "[9/11] Gravando docker-compose.yml"
+cat > "${STACK_DIR}/docker-compose.yml" <<'EOF2'
 services:
   portainer:
     image: portainer/portainer-ce:sts
@@ -183,7 +208,7 @@ services:
       discovery.type: single-node
       plugins.security.disabled: "true"
       bootstrap.memory_lock: "true"
-      OPENSEARCH_JAVA_OPTS: -Xms1g -Xmx1g
+      OPENSEARCH_JAVA_OPTS: -Xms512m -Xmx512m
     ulimits:
       memlock:
         soft: -1
@@ -221,27 +246,13 @@ services:
 networks:
   default:
     name: monitoring-net
-EOF
+EOF2
 
-echo "[8/9] Validando compose"
+echo "[10/11] Validando compose"
 cd "${STACK_DIR}"
 docker compose config >/dev/null
 
-echo "[9/9] Subindo stack"
-docker compose pull
-docker compose up -d
-
-echo
-echo "Stack instalada com sucesso."
-echo "Graylog   : http://${SERVER_IP}:9000"
-echo "Zabbix    : http://${SERVER_IP}:8082"
-echo "Grafana   : http://${SERVER_IP}:3001"
-echo "Portainer : https://${SERVER_IP}:9443"
-echo
-echo "Credenciais padrão sugeridas:"
-echo "Grafana:  admin / ${ADMIN_PASS}"
-echo "Graylog:  admin / ${ADMIN_PASS}"
-echo "Zabbix DB: ${ZABBIX_DB_USER} / ${ZABBIX_DB_PASSWORD} (porta interna 3306)"
-echo "Portainer: criar no primeiro acesso em https://${SERVER_IP}:9443"
-echo
-docker compose ps
+echo "[11/11] Pronto para executar"
+echo "Arquivo criado e validado."
+echo "Na próxima etapa, vamos apenas dar permissão e executar."
+EOF
