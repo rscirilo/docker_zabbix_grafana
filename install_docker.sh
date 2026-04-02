@@ -4,6 +4,7 @@ set -euo pipefail
 STACK_DIR="/srv/monitoring"
 DATA_DIR="/srv/docker"
 SERVER_IP="192.168.100.2"
+TIMEZONE="America/Fortaleza"
 
 ADMIN_PASS='@123Mudar'
 GRAFANA_ADMIN_USER='admin'
@@ -17,18 +18,23 @@ MYSQL_ROOT_PASSWORD='@123Mudar'
 GRAYLOG_PASSWORD_SECRET='MudarParaUmaStringGrandeSeguraComNoMinimo96Caracteres_1234567890_ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdef'
 GRAYLOG_ROOT_PASSWORD_SHA2="$(echo -n '@123Mudar' | sha256sum | awk '{print $1}')"
 
-echo "[1/8] Preparando sistema"
+if [[ "${EUID}" -ne 0 ]]; then
+  echo "Execute como root."
+  exit 1
+fi
+
+echo "[1/9] Preparando sistema"
 export DEBIAN_FRONTEND=noninteractive
 apt update
-apt install -y ca-certificates curl gnupg lsb-release apt-transport-https software-properties-common
+apt install -y ca-certificates curl gnupg lsb-release apt-transport-https
 
-echo "[2/8] Desativando firewall local, se existir"
+echo "[2/9] Desativando firewall local, se existir"
 systemctl stop ufw 2>/dev/null || true
 systemctl disable ufw 2>/dev/null || true
 systemctl stop firewalld 2>/dev/null || true
 systemctl disable firewalld 2>/dev/null || true
 
-echo "[3/8] Instalando Docker oficial em Debian"
+echo "[3/9] Instalando Docker oficial"
 install -m 0755 -d /etc/apt/keyrings
 curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc
 chmod a+r /etc/apt/keyrings/docker.asc
@@ -42,43 +48,39 @@ Architectures: $(dpkg --print-architecture)
 Signed-By: /etc/apt/keyrings/docker.asc
 EOF
 
+apt remove -y docker.io docker-doc podman-docker containerd runc 2>/dev/null || true
 apt update
-apt remove -y docker.io docker-compose docker-doc podman-docker containerd runc 2>/dev/null || true
 apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 
 systemctl enable docker
 systemctl restart docker
 
-echo "[4/8] Ajustando kernel para Graylog"
+echo "[4/9] Ajustando kernel para Graylog/OpenSearch"
 cat >/etc/sysctl.d/99-graylog.conf <<EOF
 vm.max_map_count=262144
 EOF
 sysctl --system
 
-echo "[5/8] Criando estrutura em /srv"
+echo "[5/9] Criando estrutura em /srv"
 mkdir -p "${STACK_DIR}"
 mkdir -p "${DATA_DIR}"/{portainer,grafana,mysql,zabbix-alertscripts,zabbix-externalscripts,zabbix-modules,zabbix-enc,zabbix-ssh_keys,zabbix-ssl-certs,zabbix-ssl-keys,zabbix-ssl-ca,zabbix-snmptraps,zabbix-mibs,mongodb,graylog-data,graylog-journal,opensearch-data}
 
-echo "[6/8] Gravando arquivo .env"
+echo "[6/9] Gravando .env"
 cat > "${STACK_DIR}/.env" <<EOF
-TZ=America/Fortaleza
+TZ=${TIMEZONE}
 SERVER_IP=${SERVER_IP}
-
 ADMIN_PASS=${ADMIN_PASS}
-
 GRAFANA_ADMIN_USER=${GRAFANA_ADMIN_USER}
 GRAFANA_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD}
-
 ZABBIX_DB_NAME=${ZABBIX_DB_NAME}
 ZABBIX_DB_USER=${ZABBIX_DB_USER}
 ZABBIX_DB_PASSWORD=${ZABBIX_DB_PASSWORD}
 MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
-
 GRAYLOG_PASSWORD_SECRET=${GRAYLOG_PASSWORD_SECRET}
 GRAYLOG_ROOT_PASSWORD_SHA2=${GRAYLOG_ROOT_PASSWORD_SHA2}
 EOF
 
-echo "[7/8] Gravando docker-compose.yml"
+echo "[7/9] Gravando docker-compose.yml"
 cat > "${STACK_DIR}/docker-compose.yml" <<'EOF'
 services:
   portainer:
@@ -178,10 +180,10 @@ services:
     container_name: graylog-opensearch
     restart: unless-stopped
     environment:
-      - discovery.type=single-node
-      - plugins.security.disabled=true
-      - bootstrap.memory_lock=true
-      - OPENSEARCH_JAVA_OPTS=-Xms1g -Xmx1g
+      discovery.type: single-node
+      plugins.security.disabled: "true"
+      bootstrap.memory_lock: "true"
+      OPENSEARCH_JAVA_OPTS: -Xms1g -Xmx1g
     ulimits:
       memlock:
         soft: -1
@@ -199,7 +201,7 @@ services:
     depends_on:
       - mongodb
       - opensearch
-    entrypoint: /usr/bin/tini -- wait-for-it opensearch:9200 --  /docker-entrypoint.sh
+    entrypoint: /usr/bin/tini -- wait-for-it opensearch:9200 -- /docker-entrypoint.sh
     environment:
       TZ: ${TZ}
       GRAYLOG_PASSWORD_SECRET: ${GRAYLOG_PASSWORD_SECRET}
@@ -221,22 +223,25 @@ networks:
     name: monitoring-net
 EOF
 
-echo "[8/8] Subindo stack"
+echo "[8/9] Validando compose"
 cd "${STACK_DIR}"
+docker compose config >/dev/null
+
+echo "[9/9] Subindo stack"
 docker compose pull
 docker compose up -d
 
 echo
 echo "Stack instalada com sucesso."
-echo "Acessos:"
 echo "Graylog   : http://${SERVER_IP}:9000"
 echo "Zabbix    : http://${SERVER_IP}:8082"
 echo "Grafana   : http://${SERVER_IP}:3001"
 echo "Portainer : https://${SERVER_IP}:9443"
 echo
-echo "Credenciais padrão:"
-echo "Usuario: admin"
-echo "Senha  : ${ADMIN_PASS}"
+echo "Credenciais padrão sugeridas:"
+echo "Grafana:  admin / ${ADMIN_PASS}"
+echo "Graylog:  admin / ${ADMIN_PASS}"
+echo "Zabbix DB: ${ZABBIX_DB_USER} / ${ZABBIX_DB_PASSWORD} (porta interna 3306)"
+echo "Portainer: criar no primeiro acesso em https://${SERVER_IP}:9443"
 echo
-echo "Status:"
 docker compose ps
