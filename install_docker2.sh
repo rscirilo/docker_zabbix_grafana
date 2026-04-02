@@ -42,25 +42,27 @@ mkdir -p "${DATA_DIR}"
 mkdir -p "${DOCKER_DATA_ROOT}"
 mkdir -p "${CONTAINERD_ROOT}"
 
-mkdir -p "${DATA_DIR}"/{
-  portainer,
-  grafana,
-  mysql,
-  zabbix-alertscripts,
-  zabbix-externalscripts,
-  zabbix-modules,
-  zabbix-enc,
-  zabbix-ssh_keys,
-  zabbix-ssl-certs,
-  zabbix-ssl-keys,
-  zabbix-ssl-ca,
-  zabbix-snmptraps,
-  zabbix-mibs,
-  mongodb,
-  graylog-data,
-  graylog-journal,
+for d in \
+  portainer \
+  grafana \
+  mysql \
+  zabbix-alertscripts \
+  zabbix-externalscripts \
+  zabbix-modules \
+  zabbix-enc \
+  zabbix-ssh_keys \
+  zabbix-ssl-certs \
+  zabbix-ssl-keys \
+  zabbix-ssl-ca \
+  zabbix-snmptraps \
+  zabbix-mibs \
+  mongodb \
+  graylog-data \
+  graylog-journal \
   opensearch-data
-}
+do
+  mkdir -p "${DATA_DIR}/${d}"
+done
 
 echo "[4/13] Instalando Docker oficial"
 install -m 0755 -d /etc/apt/keyrings
@@ -231,7 +233,7 @@ services:
     container_name: graylog-opensearch
     restart: unless-stopped
     environment:
-      discovery.type: single-node
+      discovery.type: "single-node"
       plugins.security.disabled: "true"
       bootstrap.memory_lock: "true"
       OPENSEARCH_JAVA_OPTS: "-Xms512m -Xmx512m"
@@ -249,7 +251,7 @@ services:
       - /srv/docker/opensearch-data:/usr/share/opensearch/data
 
   graylog:
-    image: graylog/graylog:4.3
+    image: graylog/graylog:4.3.15
     container_name: graylog
     restart: unless-stopped
     depends_on:
@@ -292,7 +294,7 @@ echo "Zabbix    : http://${SERVER_IP}:8082"
 echo "Grafana   : http://${SERVER_IP}:3001"
 echo "Portainer : https://${SERVER_IP}:9443"
 echo
-echo "Graylog/Grafana senha: ${ADMIN_PASS}"
+echo "Senha Graylog/Grafana: ${ADMIN_PASS}"
 echo "Banco Zabbix: ${ZABBIX_DB_USER} / ${ZABBIX_DB_PASSWORD}"
 echo
 docker compose ps
