@@ -34,7 +34,7 @@ echo "=================================================="
 echo "[1/14] Preparando sistema"
 export DEBIAN_FRONTEND=noninteractive
 apt update
-apt install -y ca-certificates curl gnupg lsb-release apt-transport-https software-properties-common
+apt install -y ca-certificates curl gnupg lsb-release apt-transport-https
 
 echo "[2/14] Desativando firewall local"
 systemctl stop ufw 2>/dev/null || true
@@ -153,7 +153,7 @@ GRAYLOG_ROOT_PASSWORD_SHA2=${GRAYLOG_ROOT_PASSWORD_SHA2}
 EOF
 
 echo "[12/14] Gravando docker-compose.yml"
-cat > "${STACK_DIR}/docker-compose.yml" <<'EOF'
+cat > "${STACK_DIR}/docker-compose.yml" <<'COMPOSEEOF'
 services:
   portainer:
     image: portainer/portainer-ce:lts
@@ -297,7 +297,7 @@ services:
 networks:
   default:
     name: monitoring-net
-EOF
+COMPOSEEOF
 
 echo "[13/14] Validando compose e baixando imagens"
 cd "${STACK_DIR}"
