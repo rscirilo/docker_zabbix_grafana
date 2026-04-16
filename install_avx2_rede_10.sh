@@ -298,13 +298,16 @@ echo "Zabbix    : http://${SERVER_IP}:8082"
 echo "Grafana   : http://${SERVER_IP}:3001"
 echo "Portainer : https://${SERVER_IP}:9443"
 echo
-echo "Credenciais:"
-echo "Grafana : ${GRAFANA_ADMIN_USER} / ${ADMIN_PASS}"
-echo "Graylog : admin / ${ADMIN_PASS}"
-echo "Banco   : ${ZABBIX_DB_USER} / ${ZABBIX_DB_PASSWORD}"
+echo "Credenciais iniciais:"
+echo "Grafana   : ${GRAFANA_ADMIN_USER} / ${ADMIN_PASS}"
+echo "Graylog   : admin / ${ADMIN_PASS}"
+echo "Zabbix    : Admin / zabbix"
+echo "Portainer : criar usuario admin no primeiro acesso"
 echo
 echo "Rede Docker  : ${DOCKER_NET_NAME} (${DOCKER_NET_SUBNET})"
 echo "Gateway      : ${DOCKER_NET_GATEWAY}"
+echo
+echo "IMPORTANTE: altere as senhas padrao apos o primeiro login."
 echo
 echo "Status:"
 docker compose ps
