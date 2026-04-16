@@ -36,10 +36,10 @@ if [[ "${EUID}" -ne 0 ]]; then
   exit 1
 fi
 
-echo "=================================================="
-echo " INSTALACAO COMPLETA: Docker + Graylog + Zabbix +"
-echo " Grafana + Portainer + GLPI em /srv"
-echo "=================================================="
+echo "=========================================================="
+echo " INSTALACAO COMPLETA: Docker + Graylog + Zabbix + Grafana"
+echo " Portainer + GLPI em /srv"
+echo "=========================================================="
 
 echo "[1/14] Preparando sistema"
 export DEBIAN_FRONTEND=noninteractive
@@ -139,7 +139,6 @@ chown -R 472:472 /srv/docker/grafana || true
 chown -R 999:999 /srv/docker/mongodb || true
 chown -R 1000:1000 /srv/docker/opensearch-data || true
 chown -R 1100:1100 /srv/docker/graylog-data /srv/docker/graylog-journal || true
-# GLPI: arquivos de aplicação
 chown -R 33:33 /srv/docker/glpi-files || true
 
 chmod -R 775 /srv/docker/grafana || true
@@ -163,7 +162,6 @@ ZABBIX_DB_USER=${ZABBIX_DB_USER}
 ZABBIX_DB_PASSWORD=${ZABBIX_DB_PASSWORD}
 MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
 
-# GLPI
 GLPI_DB_NAME=${GLPI_DB_NAME}
 GLPI_DB_USER=${GLPI_DB_USER}
 GLPI_DB_PASSWORD=${GLPI_DB_PASSWORD}
@@ -398,6 +396,14 @@ echo "GLPI      : http://${SERVER_IP}:8181"
 echo "================================================="
 echo "Rede Docker  : ${DOCKER_NET_NAME} (${DOCKER_NET_SUBNET})"
 echo "Gateway      : ${DOCKER_NET_GATEWAY}"
-echo "Senha padrao : ${ADMIN_PASS}"
+echo
+echo "Credenciais iniciais:"
+echo "Grafana   : ${GRAFANA_ADMIN_USER} / ${GRAFANA_ADMIN_PASSWORD}"
+echo "Graylog   : admin / ${ADMIN_PASS}"
+echo "Zabbix    : Admin / zabbix"
+echo "GLPI      : glpi / glpi"
+echo "Portainer : criar usuario no primeiro acesso"
+echo
+echo "IMPORTANTE: troque as senhas padrao apos o primeiro login."
 echo
 docker compose ps
