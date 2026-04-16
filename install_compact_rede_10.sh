@@ -342,6 +342,13 @@ echo "Portainer : https://${SERVER_IP}:9443"
 echo "================================================="
 echo "Rede Docker  : ${DOCKER_NET_NAME} (${DOCKER_NET_SUBNET})"
 echo "Gateway      : ${DOCKER_NET_GATEWAY}"
-echo "Senha padrao : ${ADMIN_PASS}"
+echo
+echo "Credenciais iniciais:"
+echo "Grafana   : ${GRAFANA_ADMIN_USER} / ${GRAFANA_ADMIN_PASSWORD}"
+echo "Graylog   : admin / ${ADMIN_PASS}"
+echo "Zabbix    : Admin / zabbix"
+echo "Portainer : criar usuario admin no primeiro acesso"
+echo
+echo "IMPORTANTE: altere as senhas padrao apos o primeiro login."
 echo
 docker compose ps
