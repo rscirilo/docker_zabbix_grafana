@@ -216,9 +216,9 @@ services:
       - /srv/docker/zabbix-modules:/var/lib/zabbix/modules
       - /srv/docker/zabbix-enc:/var/lib/zabbix/enc
       - /srv/docker/zabbix-ssh_keys:/var/lib/zabbix/ssh_keys
-      - /srv/docker/zabbix-ssl-certs:/var/lib/zabbix/ssl/certs
-      - /srv/docker/zabbix-ssl-keys:/var/lib/zabbix/ssl/keys
-      - /srv/docker/zabbix-ssl-ca:/var/lib/zabbix/ssl/ssl_ca
+      - /srv/docker/zabbix-ssl-certs:/usr/lib/zabbix/ssl/certs
+      - /srv/docker/zabbix-ssl-keys:/usr/lib/zabbix/ssl/keys
+      - /srv/docker/zabbix-ssl-ca:/usr/lib/zabbix/ssl/ssl_ca
       - /srv/docker/zabbix-snmptraps:/var/lib/zabbix/snmptraps
       - /srv/docker/zabbix-mibs:/var/lib/zabbix/mibs
 
@@ -314,6 +314,12 @@ echo "Zabbix    : http://${SERVER_IP}:8082"
 echo "Grafana   : http://${SERVER_IP}:3001"
 echo "Portainer : https://${SERVER_IP}:9443"
 echo "================================================="
-echo "Senha padrao: ${ADMIN_PASS}"
+echo "Credenciais iniciais:"
+echo "Grafana   : ${GRAFANA_ADMIN_USER} / ${GRAFANA_ADMIN_PASSWORD}"
+echo "Graylog   : admin / ${ADMIN_PASS}"
+echo "Zabbix    : Admin / zabbix"
+echo "Portainer : criar usuario admin no primeiro acesso"
+echo
+echo "IMPORTANTE: altere as senhas padrao apos o primeiro login."
 echo
 docker compose ps
